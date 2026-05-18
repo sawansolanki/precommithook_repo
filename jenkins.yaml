@@ -1,0 +1,68 @@
+pipeline {
+    agent any
+
+    options {
+        timeout(time: 10, unit: 'MINUTES') 
+        buildDiscarder(logRotator(numToKeepStr: '5')) 
+        timestamps() 
+    }
+
+    environment {
+        PROJECT_NAME = 'Sample-DevOps-Project'
+        DEPLOY_TARGET = 'Staging-Server'
+    }
+
+    stages {
+        stage('Checkout & Lint') {
+            steps {
+                echo "=== Starting Pipeline for ${env.PROJECT_NAME} ==="
+                echo "Checking code formatting and syntax..."
+                // Using 'bat' for Windows Command Prompt
+                bat 'echo Running linter...'
+            }
+        }
+
+        stage('Build & Compile') {
+            steps {
+                echo "Compiling the application..."
+                // Multi-line Windows Batch commands
+                bat '''
+                    if not exist build mkdir build
+                    echo Version: %BUILD_NUMBER% > build\\version.txt
+                    echo Build date: %DATE% %TIME% >> build\\version.txt
+                '''
+                echo "Build step completed."
+            }
+        }
+
+        stage('Run Unit Tests') {
+            steps {
+                echo "Executing automated tests..."
+                bat 'echo Running 124 unit tests...'
+                echo "All tests passed!"
+            }
+        }
+
+        stage('Deploy Stub') {
+            steps {
+                echo "Deploying artifacts to ${env.DEPLOY_TARGET}..."
+                // Using Windows 'type' instead of Linux 'cat'
+                bat 'type build\\version.txt'
+                echo "Deployment successful."
+            }
+        }
+    }
+
+    post {
+        always {
+            echo "Pipeline finished. Cleaning up temporary workspace files..."
+            cleanWs()
+        }
+        success {
+            echo "BUILD SUCCESSFUL!"
+        }
+        failure {
+            echo "BUILD FAILED! Check the console output above for details."
+        }
+    }
+}
