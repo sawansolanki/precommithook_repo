@@ -13,6 +13,11 @@ pipeline {
     }
 
     stages {
+        stageP('checkout repo for jenkins') {
+            steps {
+                checkout scmGit(branches: [[name: '*/main']], extensions: [], userRemoteConfigs: [[url: 'https://github.com/sawansolanki/precommithook_repo.git']])
+            }
+        }
         stage('Checkout & Lint') {
             steps {
                 echo "=== Starting Pipeline for ${env.PROJECT_NAME} ==="
