@@ -18,6 +18,12 @@ pipeline {
                 checkout scmGit(branches: [[name: '*/main']], extensions: [], userRemoteConfigs: [[url: 'https://github.com/sawansolanki/precommithook_repo.git']])
             }
         }
+
+        stage('list the repo files') {
+            steps {
+                bat 'dir'
+            }
+        }
         stage('Checkout & Lint') {
             steps {
                 echo "=== Starting Pipeline for ${env.PROJECT_NAME} ==="
