@@ -13,7 +13,7 @@ pipeline {
     }
 
     stages {
-        stageP('checkout repo for jenkins') {
+        stage('checkout repo for jenkins') {
             steps {
                 checkout scmGit(branches: [[name: '*/main']], extensions: [], userRemoteConfigs: [[url: 'https://github.com/sawansolanki/precommithook_repo.git']])
             }
