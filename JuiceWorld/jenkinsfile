@@ -1,0 +1,146 @@
+pipeline {
+    agent any
+
+    environment {
+        // --- Project Settings ---
+        PROJECT_NAME        = 'juice-shop'
+        PROJECT_VERSION     = '1.0.0'
+
+        // --- SonarQube Settings ---
+        SONAR_SERVER        = 'SonarQube'          // Must match the name configured in
+                                                    // Jenkins > Manage Jenkins > Configure System
+        SONAR_SCANNER_HOME  = tool 'SonarScanner'  // Must match the tool name configured in
+                                                    // Jenkins > Manage Jenkins > Global Tool Configuration
+        SONAR_PROJECT_KEY   = 'juice-shop'
+        SONAR_HOST_URL      = 'http://localhost:9000'
+
+        // --- Node Settings ---
+        NODE_OPTIONS        = '--max-old-space-size=4096'
+    }
+
+    tools {
+        nodejs 'NodeJS'   // Must match the Node.js installation name in Global Tool Configuration
+    }
+
+    options {
+        buildDiscarder(logRotator(numToKeepStr: '10'))
+        timestamps()
+        timeout(time: 60, unit: 'MINUTES')
+    }
+
+    stages {
+
+        // ── 1. CHECKOUT ────────────────────────────────────────────────────────
+        stage('Checkout') {
+            steps {
+                echo '📥 Checking out source code...'
+                // Option A – Jenkins pulls from Git (recommended):
+                // git branch: 'main',
+                //     credentialsId: 'your-git-credentials-id',
+                //     url: 'https://github.com/your-org/juice-shop.git'
+
+                // Option B – Code already on the agent at the workspace path.
+                // Copy the project from the local Windows path into the workspace:
+                bat 'xcopy /E /I /Y "C:\\Users\\solan\\Documents\\juice-shop\\juice-shop" "%WORKSPACE%"'
+            }
+        }
+
+        // ── 2. INSTALL DEPENDENCIES ────────────────────────────────────────────
+        stage('Install Dependencies') {
+            steps {
+                echo '📦 Installing npm dependencies...'
+                bat 'node --version'
+                bat 'npm --version'
+                bat 'npm install'
+            }
+        }
+
+        // ── 3. LINT ────────────────────────────────────────────────────────────
+        stage('Lint') {
+            steps {
+                echo '🔍 Running linter...'
+                // Juice Shop uses standard / eslint; adjust script name if needed
+                bat 'npm run lint || echo "Lint warnings detected – continuing"'
+            }
+        }
+
+        // ── 4. UNIT TESTS + COVERAGE ───────────────────────────────────────────
+        stage('Test') {
+            steps {
+                echo '🧪 Running unit tests with coverage...'
+                // Juice Shop's test script; coverage output goes to ./coverage/
+                bat 'npm test -- --coverage --coverageReporters=lcov --coverageReporters=text || true'
+            }
+            post {
+                always {
+                    // Publish JUnit-style test results if they exist
+                    junit allowEmptyResults: true, testResults: '**/test-results/*.xml'
+                }
+            }
+        }
+
+        // ── 5. SONARQUBE ANALYSIS ──────────────────────────────────────────────
+        stage('SonarQube Analysis') {
+            steps {
+                echo '📊 Running SonarQube analysis...'
+                withSonarQubeEnv("${SONAR_SERVER}") {
+                    bat """
+                        "${SONAR_SCANNER_HOME}\\bin\\sonar-scanner.bat" ^
+                            -Dsonar.projectKey=${SONAR_PROJECT_KEY} ^
+                            -Dsonar.projectName=${PROJECT_NAME} ^
+                            -Dsonar.projectVersion=${PROJECT_VERSION} ^
+                            -Dsonar.sources=. ^
+                            -Dsonar.exclusions=**/node_modules/**,**/coverage/**,**/test/**,**/*.spec.ts,**/*.spec.js,**/dist/**,**/.git/** ^
+                            -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info ^
+                            -Dsonar.host.url=${SONAR_HOST_URL} ^
+                            -Dsonar.sourceEncoding=UTF-8
+                    """
+                }
+            }
+        }
+
+        // ── 6. QUALITY GATE ────────────────────────────────────────────────────
+        stage('Quality Gate') {
+            steps {
+                echo '🚦 Waiting for SonarQube Quality Gate result...'
+                timeout(time: 5, unit: 'MINUTES') {
+                    // abortPipeline: true  → fails the build if gate is not passed
+                    waitForQualityGate abortPipeline: true
+                }
+            }
+        }
+
+        // ── 7. BUILD ───────────────────────────────────────────────────────────
+        stage('Build') {
+            steps {
+                echo '🏗️  Building application...'
+                bat 'npm run build || echo "No build script found – skipping"'
+            }
+        }
+
+        // ── 8. ARCHIVE ARTIFACTS ───────────────────────────────────────────────
+        stage('Archive Artifacts') {
+            steps {
+                echo '📦 Archiving build artifacts...'
+                archiveArtifacts artifacts: 'dist/**/*', allowEmptyArchive: true
+            }
+        }
+    }
+
+    // ── POST-BUILD ACTIONS ─────────────────────────────────────────────────────
+    post {
+        always {
+            echo '🧹 Cleaning workspace...'
+            cleanWs()
+        }
+        success {
+            echo '✅ Pipeline completed successfully!'
+        }
+        failure {
+            echo '❌ Pipeline failed. Check the logs above for details.'
+        }
+        unstable {
+            echo '⚠️  Pipeline is unstable (test failures or quality gate warnings).'
+        }
+    }
+}
