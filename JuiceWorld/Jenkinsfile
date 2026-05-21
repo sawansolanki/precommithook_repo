@@ -130,8 +130,10 @@ pipeline {
     // ── POST-BUILD ACTIONS ─────────────────────────────────────────────────────
     post {
         always {
-            echo '🧹 Cleaning workspace...'
-            cleanWs()
+            node('') {
+                echo '🧹 Cleaning workspace...'
+                cleanWs()
+            }
         }
         success {
             echo '✅ Pipeline completed successfully!'
@@ -140,7 +142,7 @@ pipeline {
             echo '❌ Pipeline failed. Check the logs above for details.'
         }
         unstable {
-            echo '⚠️  Pipeline is unstable (test failures or quality gate warnings).'
+            echo '⚠️  Pipeline is unstable.'
         }
     }
 }
