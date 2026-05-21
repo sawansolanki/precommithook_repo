@@ -33,15 +33,9 @@ pipeline {
         // ── 1. CHECKOUT ────────────────────────────────────────────────────────
         stage('Checkout') {
             steps {
-                echo '📥 Checking out source code...'
-                // Option A – Jenkins pulls from Git (recommended):
-                // git branch: 'main',
-                //     credentialsId: 'your-git-credentials-id',
-                //     url: 'https://github.com/your-org/juice-shop.git'
-
-                // Option B – Code already on the agent at the workspace path.
-                // Copy the project from the local Windows path into the workspace:
-                bat 'xcopy /E /I /Y "C:\\Users\\solan\\Documents\\juice-shop\\juice-shop" "%WORKSPACE%"'
+                echo '📥 Cloning from GitHub...'
+                git branch: 'main',
+                    url: 'https://github.com/your-username/juice-shop.git'
             }
         }
 
